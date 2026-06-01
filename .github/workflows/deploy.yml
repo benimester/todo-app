@@ -1,0 +1,47 @@
+name: Build and Push Microservices to ECR
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    environment: default
+    strategy:
+      matrix:
+        service: [auth, media, todo]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Authenticate with AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        audience: sts.amazonaws.com
+        aws-region: ${{ vars.AWS_REGION }}
+        role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+      
+    - name: Build and Push Microservice
+      env:
+        ECR_REGISTRY: ${{ vars.AWS_ECR_REGISTRY }}
+        ECR_REPOSITORY: ${{ matrix.service }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build the container image using the Dockerfile in the respective service directory
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG ./backend/${{ matrix.service }}
+        
+        # Tag it as 'latest' for standard deployment tracking
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        # Push both the unique SHA version and the latest pointer to AWS
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest

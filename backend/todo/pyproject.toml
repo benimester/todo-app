@@ -1,0 +1,15 @@
+[project]
+name = "todo"
+version = "0.1.0"
+description = "Todo service for the todo app"
+readme = ""
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.136.3",
+    "httpx>=0.28.1",
+    "motor>=3.7.1",
+    "pydantic-settings>=2.14.1",
+    "pyjwt>=2.13.0",
+    "python-multipart>=0.0.29",
+    "uvicorn>=0.48.0",
+]
