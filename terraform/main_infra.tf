@@ -12,8 +12,10 @@ module "vpc" {
   public_subnets  = ["10.0.1.0/24"]
   private_subnets = ["10.0.10.0/24"]
 
-  enable_nat_gateway = var.vpc_enable_nat_gateway
-  single_nat_gateway = true
+  enable_nat_gateway   = var.vpc_enable_nat_gateway
+  single_nat_gateway   = true
+  enable_dns_hostnames = true
+  enable_dns_support   = true
 
   create_igw = true
 
@@ -46,6 +48,30 @@ resource "aws_security_group" "private_sg" {
     protocol    = "tcp"
     cidr_blocks = var.vpc_private_sg_access_host
   }
+
+  ingress {
+    description = "Allow Flannel VXLAN"
+    from_port   = 8472
+    to_port     = 8472
+    protocol    = "udp"
+    cidr_blocks = var.vpc_private_sg_access_host
+  }
+
+  ingress {
+    description     = "Allow HTTP from Bastion"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.public_sg.id]
+  }
+
+  ingress {
+      description     = "Allow NodePort HTTP from Bastion"
+      from_port       = 30080
+      to_port         = 30080
+      protocol        = "tcp"
+      security_groups = [aws_security_group.public_sg.id]
+    }
 
   egress {
     description = "Allow all outbound traffic"
@@ -231,9 +257,27 @@ resource "aws_instance" "bastion" {
   key_name                    = var.bastion_ssh_key_name
   associate_public_ip_address = true
 
+  user_data = templatefile("${path.module}/scripts/bastion.sh", {
+    node_ips = concat(
+      [aws_instance.node-master.private_ip],
+      aws_instance.k8s_worker[*].private_ip
+    )
+  })
+
   tags = {
     Project = var.project_name
     Name    = "bastion"
+  }
+}
+
+resource "aws_eip" "bastion_eip" {
+  count    = var.bastion_enable ? 1 : 0
+  instance = aws_instance.bastion[0].id
+  domain   = "vpc"
+
+  tags = {
+    Project = var.project_name
+    Name    = "bastion-eip"
   }
 }
 
@@ -292,7 +336,9 @@ resource "aws_iam_policy" "ecr_publish_policy" {
           "ecr:UploadLayerPart",
           "ecr:InitiateLayerUpload",
           "ecr:BatchCheckLayerAvailability",
-          "ecr:PutImage"
+          "ecr:PutImage",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer"
         ]
         Resource = [for service in var.microservices : "arn:aws:ecr:${var.aws_region}:*:repository/${service}"]
       }

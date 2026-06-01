@@ -27,6 +27,16 @@ module "cloudfront" {
       origin_path           = var.frontend_s3_bucket_path
       origin_access_control = "s3_oac"
     }
+
+    k8s_api = {
+      domain_name = aws_eip.bastion_eip[0].public_dns
+      custom_origin_config = {
+        http_port              = 80
+        https_port             = 443
+        origin_protocol_policy = "http-only"
+        origin_ssl_protocols   = ["TLSv1.2"]
+      }
+    }
   }
 
   default_cache_behavior = {
@@ -34,9 +44,52 @@ module "cloudfront" {
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD"]
-
-    use_forwarded_values = false
+    use_forwarded_values   = false
+    cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   }
+
+  ordered_cache_behavior = [
+    {
+      path_pattern             = "/todos*"
+      target_origin_id         = "k8s_api"
+      viewer_protocol_policy   = "allow-all"
+      allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+      cached_methods           = ["GET", "HEAD"]
+      cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+      origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+      use_forwarded_values     = false
+    },
+    {
+      path_pattern             = "/upload*"
+      target_origin_id         = "k8s_api"
+      viewer_protocol_policy   = "allow-all"
+      allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+      cached_methods           = ["GET", "HEAD"]
+      cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+      origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+      use_forwarded_values     = false
+    },
+    {
+      path_pattern             = "/register*"
+      target_origin_id         = "k8s_api"
+      viewer_protocol_policy   = "allow-all"
+      allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+      cached_methods           = ["GET", "HEAD"]
+      cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+      origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+      use_forwarded_values     = false
+    },
+    {
+      path_pattern             = "/token*"
+      target_origin_id         = "k8s_api"
+      viewer_protocol_policy   = "allow-all"
+      allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+      cached_methods           = ["GET", "HEAD"]
+      cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+      origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+      use_forwarded_values     = false
+    }
+  ]
 
   custom_error_response = [{
     error_code         = 404

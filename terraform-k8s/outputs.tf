@@ -18,7 +18,7 @@ output "mongodb_info" {
   description = "MongoDB credentials and info"
   value = {
     database = var.mongodb_database
-    username = var.mongodb_username
+    username = "root"
   }
 }
 
@@ -32,6 +32,5 @@ output "microservices_config" {
     media_service_url = var.media_service_url
     aws_region        = var.aws_region
     s3_bucket_name    = var.s3_bucket_name
-    aws_endpoint_url  = var.aws_endpoint_url
   }
 }

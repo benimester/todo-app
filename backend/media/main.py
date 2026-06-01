@@ -10,7 +10,6 @@ AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
-AWS_ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL")
 
 
 def get_s3_client():
@@ -19,12 +18,11 @@ def get_s3_client():
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
         region_name=AWS_REGION,
-        endpoint_url=AWS_ENDPOINT_URL,
     )
 
 
 @app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
+def upload_file(file: UploadFile = File(...)):
     if not S3_BUCKET_NAME:
         raise HTTPException(status_code=500, detail="S3 bucket not configured")
 
@@ -45,8 +43,6 @@ async def upload_file(file: UploadFile = File(...)):
     file_url = (
         f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{unique_filename}"
     )
-    if AWS_ENDPOINT_URL:
-        file_url = f"{AWS_ENDPOINT_URL}/{S3_BUCKET_NAME}/{unique_filename}"
 
     return {"filename": unique_filename, "url": file_url}
 

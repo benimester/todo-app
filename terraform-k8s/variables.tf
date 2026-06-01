@@ -33,17 +33,6 @@ variable "mongodb_database" {
   type        = string
 }
 
-variable "mongodb_username" {
-  description = "The database user to create in MongoDB"
-  type        = string
-}
-
-variable "mongodb_password" {
-  description = "The password for the MongoDB user"
-  type        = string
-  sensitive   = true
-}
-
 variable "mongodb_root_password" {
   description = "The root password for MongoDB"
   type        = string

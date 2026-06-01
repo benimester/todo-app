@@ -69,11 +69,11 @@ resource "helm_release" "mongodb" {
   }
   set {
     name  = "auth.username"
-    value = var.mongodb_username
+    value = "user"
   }
   set {
     name  = "auth.password"
-    value = var.mongodb_password
+    value = "password"
   }
 
   # --- Minimal Resource Constraints ---
@@ -136,7 +136,6 @@ resource "kubernetes_config_map" "media_config" {
   data = {
     AWS_REGION       = var.aws_region
     S3_BUCKET_NAME   = var.s3_bucket_name
-    AWS_ENDPOINT_URL = var.aws_endpoint_url
   }
 }
 
@@ -148,7 +147,7 @@ resource "kubernetes_secret" "auth_secret" {
 
   data = {
     JWT_SECRET   = var.jwt_secret
-    POSTGRES_URL = "postgresql://${var.postgres_username}:${var.postgres_password}@postgres-db-postgresql.default.svc.cluster.local:5432/${var.postgres_database}"
+    POSTGRES_URL = "postgresql://${var.postgres_username}:${var.postgres_password}@postgres-db-postgresql:5432/${var.postgres_database}"
   }
 
   type = "Opaque"
@@ -162,7 +161,7 @@ resource "kubernetes_secret" "todo_secret" {
 
   data = {
     JWT_SECRET = var.jwt_secret
-    MONGO_URL  = "mongodb://${var.mongodb_username}:${var.mongodb_password}@mongodb-db.default.svc.cluster.local:27017/${var.mongodb_database}?authSource=admin"
+    MONGO_URL  = "mongodb://root:${var.mongodb_root_password}@mongodb-db.default.svc.cluster.local:27017/${var.mongodb_database}?authSource=admin"
   }
 
   type = "Opaque"
@@ -180,4 +179,22 @@ resource "kubernetes_secret" "media_secret" {
   }
 
   type = "Opaque"
+}
+
+resource "helm_release" "nginx_ingress" {
+  name             = "ingress-nginx"
+  repository       = "https://kubernetes.github.io/ingress-nginx"
+  chart            = "ingress-nginx"
+  namespace        = "ingress-nginx"
+  create_namespace = true
+
+  set {
+    name  = "controller.service.type"
+    value = "NodePort"
+  }
+
+  set {
+    name  = "controller.service.nodePorts.http"
+    value = "30080"
+  }
 }

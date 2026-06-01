@@ -6,6 +6,7 @@ readme = ""
 requires-python = ">=3.12"
 dependencies = [
     "boto3>=1.43.18",
+    "botocore[crt]>=1.43.18",
     "fastapi>=0.136.3",
     "pydantic-settings>=2.14.1",
     "python-multipart>=0.0.29",

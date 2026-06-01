@@ -34,3 +34,6 @@ aws secretsmanager put-secret-value \
   --secret-id "${secret_id}" \
   --secret-string "$(cat /etc/rancher/k3s/k3s.yaml)" \
   --region "${region}"
+
+echo "Kubeconfig uploaded to Secrets Manager successfully."
+

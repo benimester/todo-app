@@ -10,6 +10,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: default
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -35,12 +36,12 @@ jobs:
 
     - name: Establish SSM Port-Forwarding Tunnel to Master Node
       run: |
-        curl "https://amazonaws.com" -o "session-manager-plugin.deb"
+        curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
         sudo dpkg -i session-manager-plugin.deb
 
         INSTANCE_ID=$(aws ec2 describe-instances \
-          --filters "Name=tag:Name,Values=node-master" "Name=instance-state-name,Values=running" \
-          --query "Reservations.Instances.InstanceId" --output text)
+          --filters "Name=instance-state-name,Values=running" \
+          --query "Reservations[].Instances[?Tags[?Key=='Name' && Value=='node-master']].InstanceId" --output text)
         
         echo "Found Node Master Instance ID: $INSTANCE_ID"
 
@@ -55,30 +56,39 @@ jobs:
         kubectl delete secret ecr-pull-secret --ignore-not-found=true
         
         AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        REGISTRY_URL="${AWS_ACCOUNT_ID}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com"
+        ECR_PASSWORD="$(aws ecr get-login-password --region ${{ vars.AWS_REGION }})"
         
         kubectl create secret docker-registry ecr-pull-secret \
-          --docker-server="${AWS_ACCOUNT_ID}.dkr.ecr.{{vars.AWS_REGION}}.amazonaws.com" \
+          --docker-server=$REGISTRY_URL \
           --docker-username=AWS \
-          --docker-password=$(aws ecr get-login-password --region {{vars.AWS_REGION}}) \
+          --docker-password=$ECR_PASSWORD \
           --namespace=default
+
+        kubectl patch serviceaccount default -p '{"imagePullSecrets": [{"name": "ecr-pull-secret"}]}'
 
     - name: Substitute and Deploy Auth Service
       run: |
-        export IMAGE_URL="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.{{vars.AWS_REGION}}.amazonaws.com/auth:latest"
+        export IMAGE_URL="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/auth:${{ github.sha }}"
         envsubst < ./k8s/auth-service.yaml | kubectl apply -f -
 
     - name: Substitute and Deploy Todo Service
       run: |
-        export IMAGE_URL="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.{{vars.AWS_REGION}}.amazonaws.com/todo:latest"
+        export IMAGE_URL="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/todo:${{ github.sha }}"
         envsubst < ./k8s/todo-service.yaml | kubectl apply -f -
 
     - name: Substitute and Deploy Media Service
       run: |
-        export IMAGE_URL="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.{{vars.AWS_REGION}}.amazonaws.com/media:latest"
+        export IMAGE_URL="$(aws sts get-caller-identity --query Account --output text).dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/media:${{ github.sha }}"
         envsubst < ./k8s/media-service.yaml | kubectl apply -f -
+
+
+    - name: Apply Ingress Rules
+      run: |
+        kubectl apply -f ./k8s/api-ingress.yaml
 
     - name: Verify Rollout Statuses
       run: |
-        kubectl rollout status deployment/auth-service --timeout=20s
-        kubectl rollout status deployment/todo-service --timeout=20s
-        kubectl rollout status deployment/media-service --timeout=20s
+        kubectl rollout status deployment/auth-service --timeout=120s
+        kubectl rollout status deployment/todo-service --timeout=120s
+        kubectl rollout status deployment/media-service --timeout=120s
