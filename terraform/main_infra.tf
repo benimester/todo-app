@@ -438,7 +438,7 @@ resource "aws_iam_policy" "frontend_deploy_policy" {
       {
         Sid      = "CloudFrontInvalidate"
         Effect   = "Allow"
-        Action   = ["cloudfront:CreateInvalidation"]
+        Action   = ["cloudfront:CreateInvalidation", "cloudfront:ListDistributions"]
         Resource = "*"
       }
     ]

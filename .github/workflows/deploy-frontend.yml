@@ -34,6 +34,16 @@ jobs:
 
     - name: Invalidate CloudFront cache
       run: |
+        DIST_ID=$(aws cloudfront list-distributions \
+          --query "DistributionList.Items[?Comment=='Frontend CDN distribution'].Id" \
+          --output text)
+
+        if [ -z "$DIST_ID" ]; then
+          echo "ERROR: Could not find CloudFront distribution with comment 'Frontend CDN distribution'"
+          exit 1
+        fi
+
+        echo "Invalidating distribution: $DIST_ID"
         aws cloudfront create-invalidation \
-          --distribution-id ${{ vars.CF_DISTRIBUTION_ID }} \
+          --distribution-id "$DIST_ID" \
           --paths "/*"
