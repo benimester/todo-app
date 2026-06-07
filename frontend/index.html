@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Noted — Your Personal Todo</title>
+  <meta name="description" content="A minimal, beautiful todo app. Capture your tasks with notes and banner images." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0d0f18;
+      --surface:     rgba(255,255,255,0.05);
+      --surface-hover: rgba(255,255,255,0.09);
+      --border:      rgba(255,255,255,0.10);
+      --accent:      #7c6af7;
+      --accent-glow: rgba(124,106,247,0.35);
+      --accent2:     #a78bfa;
+      --text:        #e8e8f0;
+      --muted:       #7a7a9d;
+      --danger:      #f87171;
+      --success:     #4ade80;
+      --radius:      16px;
+      --radius-sm:   10px;
+      --shadow:      0 8px 40px rgba(0,0,0,0.45);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── Background gradient orbs ── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.18;
+    }
+    .orb-1 { width: 600px; height: 600px; background: #7c3aed; top: -200px; left: -150px; }
+    .orb-2 { width: 500px; height: 500px; background: #1d4ed8; bottom: -150px; right: -100px; }
+
+    /* ── Layout ── */
+    #app { position: relative; z-index: 1; min-height: 100vh; }
+
+    /* ════════════════════════════════════
+       AUTH SCREEN
+    ════════════════════════════════════ */
+    #auth-screen {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 24px;
+    }
+
+    .auth-card {
+      background: rgba(17,19,34,0.85);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 44px;
+      width: 100%; max-width: 420px;
+      box-shadow: var(--shadow), 0 0 0 1px rgba(124,106,247,0.08);
+      animation: fadeUp 0.4s ease;
+    }
+
+    .auth-logo {
+      font-size: 28px; font-weight: 700; letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #a78bfa, #7c6af7, #60a5fa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+
+    .auth-tagline { color: var(--muted); font-size: 14px; margin-bottom: 36px; }
+
+    .tab-row {
+      display: flex; gap: 4px;
+      background: rgba(255,255,255,0.04);
+      border-radius: var(--radius-sm);
+      padding: 4px; margin-bottom: 28px;
+    }
+    .tab-btn {
+      flex: 1; padding: 8px; border: none; border-radius: 8px;
+      background: transparent; color: var(--muted);
+      font-family: inherit; font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 2px 12px var(--accent-glow);
+    }
+
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
+
+    input[type=text], input[type=password], textarea {
+      width: 100%; padding: 12px 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text); font-family: inherit; font-size: 15px;
+      outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    textarea { resize: vertical; min-height: 80px; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 20px; border: none; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; width: 100%;
+    }
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+    .btn-primary:hover { background: #6b58f0; transform: translateY(-1px); box-shadow: 0 6px 28px var(--accent-glow); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-ghost {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--surface-hover); }
+    .btn-danger {
+      background: rgba(248,113,113,0.12); color: var(--danger);
+      border: 1px solid rgba(248,113,113,0.2);
+    }
+    .btn-danger:hover { background: rgba(248,113,113,0.2); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+    .error-msg {
+      margin-top: 14px; padding: 12px 14px;
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.25);
+      border-radius: var(--radius-sm);
+      color: var(--danger); font-size: 14px; text-align: center;
+    }
+
+    /* ════════════════════════════════════
+       MAIN APP SCREEN
+    ════════════════════════════════════ */
+    #main-screen { display: none; min-height: 100vh; padding-bottom: 60px; }
+
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 28px;
+      background: rgba(13,15,24,0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+
+    .topbar-logo { font-size: 20px; font-weight: 700; letter-spacing: -0.4px;
+      background: linear-gradient(135deg, #a78bfa, #7c6af7);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .user-badge {
+      font-size: 13px; color: var(--muted);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 5px 14px;
+    }
+
+    .btn-sm { padding: 7px 14px; font-size: 13px; width: auto; }
+
+    /* ── Content ── */
+    .content { max-width: 760px; margin: 0 auto; padding: 36px 24px; }
+
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .section-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+    .todo-count { font-size: 13px; color: var(--muted); background: var(--surface); border-radius: 20px; padding: 3px 10px; }
+
+    /* ── Create form card ── */
+    .create-card {
+      background: rgba(17,19,34,0.75);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px;
+      margin-bottom: 36px;
+      box-shadow: var(--shadow);
+    }
+    .create-card-title { font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 20px; }
+
+    /* Image upload zone */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .upload-zone:hover { border-color: var(--accent); background: rgba(124,106,247,0.04); }
+    .upload-zone.has-image { border-style: solid; border-color: var(--accent); padding: 0; }
+    .upload-zone input[type=file] { display: none; }
+    .upload-zone-label {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      color: var(--muted); font-size: 14px; cursor: pointer;
+    }
+    .upload-icon { font-size: 28px; }
+    .upload-preview {
+      width: 100%; height: 180px;
+      object-fit: cover; border-radius: var(--radius-sm);
+      display: none;
+    }
+    .upload-remove {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(0,0,0,0.7); border: none; border-radius: 50%;
+      color: #fff; width: 28px; height: 28px; cursor: pointer;
+      display: none; align-items: center; justify-content: center;
+      font-size: 16px; transition: background 0.2s;
+    }
+    .upload-remove:hover { background: rgba(248,113,113,0.8); }
+    .create-actions { display: flex; gap: 10px; margin-top: 18px; }
+    .create-actions .btn { flex: 1; }
+
+    /* ── Todo list ── */
+    .todo-list { display: flex; flex-direction: column; gap: 16px; }
+
+    .todo-card {
+      background: rgba(17,19,34,0.75);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      animation: fadeUp 0.3s ease;
+    }
+    .todo-card:hover { transform: translateY(-2px); box-shadow: 0 8px 36px rgba(0,0,0,0.4); border-color: rgba(124,106,247,0.25); }
+
+    .todo-banner {
+      width: 100%; height: 200px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .todo-body { padding: 22px 24px; }
+    .todo-title { font-size: 18px; font-weight: 600; letter-spacing: -0.2px; margin-bottom: 8px; }
+    .todo-desc { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 16px; }
+    .todo-footer {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .todo-id { font-size: 12px; color: rgba(122,122,157,0.6); font-family: monospace; }
+    .todo-delete {
+      background: transparent; border: none; color: var(--muted);
+      cursor: pointer; font-size: 16px; padding: 4px 8px;
+      border-radius: 6px; transition: all 0.2s;
+    }
+    .todo-delete:hover { color: var(--danger); background: rgba(248,113,113,0.1); }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center; padding: 64px 24px; color: var(--muted);
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .empty-title { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    .empty-sub { font-size: 14px; }
+
+    /* ── Loading spinner ── */
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    /* ── Notifications ── */
+    #toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: rgba(30,32,52,0.95);
+      border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px 20px;
+      color: var(--text); font-size: 14px; font-weight: 500;
+      box-shadow: var(--shadow); z-index: 1000;
+      opacity: 0; transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none; white-space: nowrap;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #toast.success { border-color: rgba(74,222,128,0.4); color: var(--success); }
+    #toast.error { border-color: rgba(248,113,113,0.4); color: var(--danger); }
+
+    /* ── Animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ── */
+    @media (max-width: 520px) {
+      .auth-card { padding: 36px 24px; }
+      .topbar { padding: 16px 20px; }
+      .content { padding: 28px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div id="app">
+
+  <!-- ══════ AUTH SCREEN ══════ -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-logo">Noted</div>
+      <p class="auth-tagline">Your minimal todo workspace.</p>
+
+      <div class="tab-row">
+        <button class="tab-btn active" id="tab-login" onclick="switchTab('login')">Sign In</button>
+        <button class="tab-btn" id="tab-register" onclick="switchTab('register')">Register</button>
+      </div>
+
+      <form id="auth-form" onsubmit="handleAuth(event)">
+        <div class="form-group">
+          <label for="auth-username">Username</label>
+          <input type="text" id="auth-username" autocomplete="username" placeholder="your_username" required />
+        </div>
+        <div class="form-group">
+          <label for="auth-password">Password</label>
+          <input type="password" id="auth-password" autocomplete="current-password" placeholder="••••••••" required />
+        </div>
+        <button class="btn btn-primary" id="auth-submit" type="submit">Sign In</button>
+        <div id="auth-error" class="error-msg" style="display:none;"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════ MAIN SCREEN ══════ -->
+  <div id="main-screen">
+    <header class="topbar">
+      <div class="topbar-logo">Noted</div>
+      <div class="topbar-right">
+        <span class="user-badge" id="user-badge"></span>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Sign Out</button>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- Create new todo -->
+      <div class="create-card">
+        <div class="create-card-title">New Note</div>
+
+        <div class="form-group">
+          <label for="new-title">Title</label>
+          <input type="text" id="new-title" placeholder="What needs doing?" />
+        </div>
+
+        <div class="form-group">
+          <label for="new-desc">Description</label>
+          <textarea id="new-desc" placeholder="Add some details…"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>Banner Image <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
+          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('new-photo').click()">
+            <input type="file" id="new-photo" accept="image/*" onchange="onPhotoSelect(event)" />
+            <img class="upload-preview" id="photo-preview" alt="Preview" />
+            <button class="upload-remove" id="photo-remove" onclick="removePhoto(event)" title="Remove">✕</button>
+            <label class="upload-zone-label" id="upload-label">
+              <span class="upload-icon">🖼️</span>
+              <span>Click to add a banner image</span>
+              <span style="font-size:12px; color:var(--muted);">JPEG, PNG, WEBP — up to 20 MB</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="create-actions">
+          <button class="btn btn-primary" id="create-btn" onclick="createTodo()">
+            Add Note
+          </button>
+        </div>
+      </div>
+
+      <!-- Todo list -->
+      <div class="section-header">
+        <h1 class="section-title">Your Notes</h1>
+        <span class="todo-count" id="todo-count">0 notes</span>
+      </div>
+
+      <div class="todo-list" id="todo-list">
+        <div class="empty-state">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // ─── Config ───────────────────────────────────────────────────────────────
+  // Use relative URLs so requests go through CloudFront regardless of domain.
+  const API = '';
+
+  // ─── State ────────────────────────────────────────────────────────────────
+  let currentTab = 'login';
+  let token = localStorage.getItem('token');
+  let username = localStorage.getItem('username');
+  let selectedPhoto = null;
+
+  // ─── Boot ─────────────────────────────────────────────────────────────────
+  if (token) showMain();
+
+  // ─── Auth tab switch ──────────────────────────────────────────────────────
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    document.getElementById('auth-submit').textContent = tab === 'login' ? 'Sign In' : 'Create Account';
+    document.getElementById('auth-error').style.display = 'none';
+  }
+
+  // ─── Auth submit ──────────────────────────────────────────────────────────
+  async function handleAuth(e) {
+    e.preventDefault();
+    const u = document.getElementById('auth-username').value.trim();
+    const p = document.getElementById('auth-password').value;
+    const errEl = document.getElementById('auth-error');
+    const btn = document.getElementById('auth-submit');
+
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+
+    try {
+      if (currentTab === 'register') {
+        const res = await fetch(`${API}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Registration failed');
+        toast('Account created! Signing you in…', 'success');
+        // auto-login after register
+      }
+
+      // Login (also runs after register)
+      const res = await fetch(`${API}/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}`
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Invalid credentials');
+
+      token = data.access_token;
+      username = u;
+      localStorage.setItem('token', token);
+      localStorage.setItem('username', username);
+      showMain();
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = currentTab === 'login' ? 'Sign In' : 'Create Account';
+    }
+  }
+
+  // ─── Show main screen ─────────────────────────────────────────────────────
+  function showMain() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-screen').style.display = 'block';
+    document.getElementById('user-badge').textContent = username || 'User';
+    loadTodos();
+  }
+
+  // ─── Logout ───────────────────────────────────────────────────────────────
+  function logout() {
+    token = null; username = null;
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    document.getElementById('main-screen').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('auth-error').style.display = 'none';
+    document.getElementById('auth-username').value = '';
+    document.getElementById('auth-password').value = '';
+  }
+
+  // ─── Photo picker ─────────────────────────────────────────────────────────
+  function onPhotoSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    selectedPhoto = file;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const zone = document.getElementById('upload-zone');
+      const preview = document.getElementById('photo-preview');
+      const label = document.getElementById('upload-label');
+      const removeBtn = document.getElementById('photo-remove');
+      preview.src = ev.target.result;
+      preview.style.display = 'block';
+      label.style.display = 'none';
+      removeBtn.style.display = 'flex';
+      zone.classList.add('has-image');
+      zone.onclick = null; // disable click on zone (use remove btn)
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removePhoto(e) {
+    e.stopPropagation();
+    selectedPhoto = null;
+    document.getElementById('new-photo').value = '';
+    document.getElementById('photo-preview').style.display = 'none';
+    document.getElementById('photo-preview').src = '';
+    document.getElementById('upload-label').style.display = 'flex';
+    document.getElementById('photo-remove').style.display = 'none';
+    const zone = document.getElementById('upload-zone');
+    zone.classList.remove('has-image');
+    zone.onclick = () => document.getElementById('new-photo').click();
+  }
+
+  // ─── Create todo ──────────────────────────────────────────────────────────
+  async function createTodo() {
+    const title = document.getElementById('new-title').value.trim();
+    const desc  = document.getElementById('new-desc').value.trim();
+
+    if (!title) { toast('A title is required', 'error'); return; }
+
+    const btn = document.getElementById('create-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+    try {
+      const form = new FormData();
+      form.append('title', title);
+      form.append('description', desc);
+      if (selectedPhoto) form.append('photo', selectedPhoto);
+
+      const res = await fetch(`${API}/todos`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: form
+      });
+
+      if (res.status === 401) { logout(); return; }
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.detail || 'Failed to create note');
+      }
+
+      // reset form
+      document.getElementById('new-title').value = '';
+      document.getElementById('new-desc').value = '';
+      removePhoto({ stopPropagation: () => {} });
+
+      toast('Note added!', 'success');
+      loadTodos();
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Add Note';
+    }
+  }
+
+  // ─── Load todos ───────────────────────────────────────────────────────────
+  async function loadTodos() {
+    const list = document.getElementById('todo-list');
+    list.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+
+    try {
+      const res = await fetch(`${API}/todos`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (res.status === 401) { logout(); return; }
+      if (!res.ok) throw new Error('Failed to load notes');
+
+      const todos = await res.json();
+      renderTodos(todos);
+    } catch (err) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Couldn't load notes</div><div class="empty-sub">${err.message}</div></div>`;
+    }
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  function renderTodos(todos) {
+    const list = document.getElementById('todo-list');
+    const count = document.getElementById('todo-count');
+    count.textContent = `${todos.length} ${todos.length === 1 ? 'note' : 'notes'}`;
+
+    if (todos.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📝</div>
+          <div class="empty-title">No notes yet</div>
+          <div class="empty-sub">Add your first note above.</div>
+        </div>`;
+      return;
+    }
+
+    // Newest first (reverse array)
+    list.innerHTML = [...todos].reverse().map(todo => `
+      <div class="todo-card" id="card-${todo.id}">
+        ${todo.photo_url ? `<img class="todo-banner" src="${escHtml(todo.photo_url)}" alt="Banner" loading="lazy" />` : ''}
+        <div class="todo-body">
+          <div class="todo-title">${escHtml(todo.title)}</div>
+          ${todo.description ? `<div class="todo-desc">${escHtml(todo.description)}</div>` : ''}
+          <div class="todo-footer">
+            <span class="todo-id">#${todo.id.slice(-6)}</span>
+            <button class="todo-delete" onclick="deleteTodo('${todo.id}')" title="Delete">🗑</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ─── Delete todo ──────────────────────────────────────────────────────────
+  async function deleteTodo(id) {
+    // Optimistic remove
+    const card = document.getElementById(`card-${id}`);
+    if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+
+    try {
+      const res = await fetch(`${API}/todos/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.status === 401) { logout(); return; }
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.detail || `Delete failed (${res.status})`);
+      }
+      if (card) card.remove();
+      // Update count
+      const list = document.getElementById('todo-list');
+      const remaining = list.querySelectorAll('.todo-card').length;
+      document.getElementById('todo-count').textContent = `${remaining} ${remaining === 1 ? 'note' : 'notes'}`;
+      if (remaining === 0) {
+        list.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-title">No notes yet</div><div class="empty-sub">Add your first note above.</div></div>`;
+      }
+      toast('Note deleted', 'success');
+    } catch (err) {
+      if (card) { card.style.opacity = '1'; card.style.pointerEvents = ''; }
+      toast(err.message, 'error');
+    }
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  let toastTimer;
+  function toast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = `show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+  }
+</script>
+</body>
+</html>

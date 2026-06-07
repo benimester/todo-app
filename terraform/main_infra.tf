@@ -412,3 +412,40 @@ resource "aws_iam_role_policy_attachment" "attach_secretsmanager" {
   role       = aws_iam_role.github_actions_role.name
   policy_arn = aws_iam_policy.secretsmanager_policy.arn
 }
+
+# Frontend deploy
+resource "aws_iam_policy" "frontend_deploy_policy" {
+  name        = "github-actions-frontend-deploy-policy"
+  description = "Allows GitHub Actions to sync the frontend to S3 and invalidate CloudFront"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "S3FrontendSync"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject",
+          "s3:ListBucket"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.s3_name}",
+          "arn:aws:s3:::${var.s3_name}/website/*"
+        ]
+      },
+      {
+        Sid      = "CloudFrontInvalidate"
+        Effect   = "Allow"
+        Action   = ["cloudfront:CreateInvalidation"]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_frontend_deploy" {
+  role       = aws_iam_role.github_actions_role.name
+  policy_arn = aws_iam_policy.frontend_deploy_policy.arn
+}

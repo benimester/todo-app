@@ -9,11 +9,18 @@ module "s3_bucket" {
 
   bucket        = var.s3_name
   force_destroy = true
+
+  block_public_acls  = true
+  ignore_public_acls = true
+
+  block_public_policy     = false
+  restrict_public_buckets = false
 }
 
 data "aws_iam_policy_document" "s3_object_access_policy" {
   count = var.s3_enable ? 1 : 0
 
+  # CloudFront full access for CDN + frontend serving
   statement {
     actions = ["s3:GetObject", "s3:ListBucket", "s3:PutObject", "s3:DeleteObject"]
 
@@ -25,6 +32,17 @@ data "aws_iam_policy_document" "s3_object_access_policy" {
     principals {
       type        = "Service"
       identifiers = ["cloudfront.amazonaws.com"]
+    }
+  }
+
+  # Public read — user-uploaded media files
+  statement {
+    actions   = ["s3:GetObject"]
+    resources = ["${module.s3_bucket[0].s3_bucket_arn}/*"]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
     }
   }
 }
